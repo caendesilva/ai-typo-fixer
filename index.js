@@ -17,11 +17,16 @@ export default {
 
       try {
         const response = await env.AI.run('@cf/meta/llama-3-8b-instruct', aiInput);
-        return new Response(response, {
+        // Parse the response as JSON
+        const result = JSON.parse(response);
+        // Extract the content from the response
+        const correctedText = result.response;
+        return new Response(correctedText, {
           headers: { 'Content-Type': 'text/plain' }
         });
       } catch (error) {
-        return new Response('Error processing text', { status: 500 });
+        console.error('Error processing text:', error);
+        return new Response(`Error processing text: ${error.message}`, { status: 500 });
       }
     } else if (request.method === 'GET') {
       const html = `<!DOCTYPE html>
@@ -46,26 +51,34 @@ export default {
                   padding: 10px 20px;
                   font-size: 16px;
               }
+              #banner {
+                  margin-top: 10px;
+                  padding: 10px;
+                  border-radius: 5px;
+              }
+              .success {
+                  background-color: #e0f0e0;
+              }
+              .error {
+                  background-color: #f0e0e0;
+              }
           </style>
       </head>
       <body>
           <h1>AI Typo Fixer</h1>
           <textarea id="inputText" placeholder="Paste your text here..."></textarea>
           <button onclick="fixTypos()">Fix Typos</button>
-          <div id="banner" style="display: none; margin-top: 10px; padding: 10px; background-color: #e0f0e0; border-radius: 5px;"></div>
-          <h2>Result:</h2>
-          <textarea id="resultText" readonly style="width: 100%; height: 200px;"></textarea>
+          <div id="banner" style="display: none;"></div>
 
           <script>
               async function fixTypos() {
-                  const inputText = document.getElementById('inputText').value;
-                  const resultText = document.getElementById('resultText');
+                  const inputText = document.getElementById('inputText');
                   const banner = document.getElementById('banner');
-                  resultText.value = 'Processing...';
                   banner.style.display = 'none';
+                  banner.className = '';
 
                   const formData = new FormData();
-                  formData.append('text', inputText);
+                  formData.append('text', inputText.value);
 
                   try {
                       const response = await fetch('/', {
@@ -76,18 +89,22 @@ export default {
                       if (response.ok) {
                           const correctedText = await response.text();
                           if (correctedText.startsWith('NO_TYPOS:')) {
-                              resultText.value = inputText;
                               banner.textContent = 'No typos found in the text.';
-                              banner.style.display = 'block';
+                              banner.className = 'success';
                           } else {
-                              resultText.value = correctedText;
+                              inputText.value = correctedText;
+                              banner.textContent = 'Typos fixed successfully.';
+                              banner.className = 'success';
                           }
                       } else {
-                          resultText.value = 'Error: ' + response.statusText;
+                          banner.textContent = 'Error: ' + response.statusText;
+                          banner.className = 'error';
                       }
                   } catch (error) {
-                      resultText.value = 'Error: ' + error.message;
+                      banner.textContent = 'Error: ' + error.message;
+                      banner.className = 'error';
                   }
+                  banner.style.display = 'block';
               }
           </script>
       </body>
