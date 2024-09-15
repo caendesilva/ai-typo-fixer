@@ -1,24 +1,30 @@
 export default {
   async fetch(request, env) {
-    const tasks = [];
+    if (request.method === 'POST') {
+      const formData = await request.formData();
+      const text = formData.get('text');
 
-    // prompt - simple completion style input
-    let simple = {
-      prompt: 'Tell me a joke about Cloudflare'
-    };
-    let response = await env.AI.run('@cf/meta/llama-3-8b-instruct', simple);
-    tasks.push({ inputs: simple, response });
+      if (!text) {
+        return new Response('No text provided', { status: 400 });
+      }
 
-    // messages - chat style input
-    let chat = {
-      messages: [
-        { role: 'system', content: 'You are a helpful assistant.' },
-        { role: 'user', content: 'Who won the world series in 2020?' }
-      ]
-    };
-    response = await env.AI.run('@cf/meta/llama-3-8b-instruct', chat);
-    tasks.push({ inputs: chat, response });
+      const aiInput = {
+        messages: [
+          { role: 'system', content: 'You are a helpful assistant that fixes typos in text without making any other changes. Return only the corrected text, nothing else.' },
+          { role: 'user', content: text }
+        ]
+      };
 
-    return Response.json(tasks);
+      try {
+        const response = await env.AI.run('@cf/meta/llama-3-8b-instruct', aiInput);
+        return new Response(response, {
+          headers: { 'Content-Type': 'text/plain' }
+        });
+      } catch (error) {
+        return new Response('Error processing text', { status: 500 });
+      }
+    } else {
+      return new Response('Method not allowed', { status: 405 });
+    }
   }
 };
