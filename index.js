@@ -17,16 +17,23 @@ export default {
 
       try {
         const response = await env.AI.run('@cf/meta/llama-3-8b-instruct', aiInput);
-        // Parse the response as JSON
-        const result = JSON.parse(response);
-        // Extract the content from the response
-        const correctedText = result.response;
-        return new Response(correctedText, {
+        
+        // Check if response is an object with a 'response' property
+        const responseText = typeof response === 'object' && response.response ? response.response : response;
+
+        if (typeof responseText !== 'string') {
+          throw new Error('Unexpected response format from AI');
+        }
+
+        if (responseText.trim().startsWith('NO_TYPOS:')) {
+          return new Response(null, { status: 204 });
+        }
+
+        return new Response(responseText.trim(), {
           headers: { 'Content-Type': 'text/plain' }
         });
       } catch (error) {
-        console.error('Error processing text:', error);
-        return new Response(`Error processing text: ${error.message}`, { status: 500 });
+        return new Response(`Error processing text: ${error}`, { status: 500 });
       }
     } else if (request.method === 'GET') {
       const html = `<!DOCTYPE html>
@@ -87,21 +94,21 @@ export default {
                       });
 
                       if (response.ok) {
-                          const correctedText = await response.text();
-                          if (correctedText.startsWith('NO_TYPOS:')) {
+                          if (response.status === 204) {
                               banner.textContent = 'No typos found in the text.';
                               banner.className = 'success';
                           } else {
+                              const correctedText = await response.text();
                               inputText.value = correctedText;
                               banner.textContent = 'Typos fixed successfully.';
                               banner.className = 'success';
                           }
                       } else {
-                          banner.textContent = 'Error: ' + response.statusText;
+                          banner.textContent = 'Error: ' + response;
                           banner.className = 'error';
                       }
                   } catch (error) {
-                      banner.textContent = 'Error: ' + error.message;
+                      banner.textContent = 'Error: ' + error;
                       banner.className = 'error';
                   }
                   banner.style.display = 'block';
